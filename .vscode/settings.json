@@ -1,0 +1,10 @@
+{
+  "java.project.sourcePaths": [
+    "loan-management-backend/src/main/java",
+    "loan-management-backend/src/main/resources",
+    "loan-management-backend/src/test/java",
+    "loan-management-backend/src/test/resources"
+  ],
+  "java.project.outputPath": "loan-management-backend/target/classes",
+  "java.configuration.updateBuildConfiguration": "automatic"
+}

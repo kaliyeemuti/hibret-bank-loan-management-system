@@ -1,0 +1,288 @@
+/* Repayments Premium Styling */
+
+.repayment-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.repayment-stats-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.repayment-stats-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(49, 46, 129, 0.08);
+}
+
+.repayment-stats-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(0, 175, 169, 0.1) 0%, rgba(49, 46, 129, 0.1) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: var(--primary-teal);
+  flex-shrink: 0;
+}
+
+.repayment-stats-info {
+  flex: 1;
+}
+
+.repayment-stats-info h4 {
+  margin: 0;
+  font-size: 13px;
+  text-transform: uppercase;
+  color: #64748b;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.repayment-stats-info p {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--primary-purple);
+}
+
+/* Progress Section */
+.repayment-progress-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border-color);
+  margin-bottom: 30px;
+}
+
+.repayment-progress-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.repayment-progress-label h3 {
+  font-size: 16px;
+  color: var(--primary-purple);
+  margin: 0;
+  font-weight: 700;
+}
+
+.repayment-progress-label span {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary-teal);
+}
+
+.repayment-progress-bar-bg {
+  width: 100%;
+  height: 12px;
+  background-color: var(--light-bg);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.repayment-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-teal) 0%, var(--primary-purple) 100%);
+  border-radius: 6px;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Custom Tabs */
+.repayment-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 10px;
+}
+
+.repayment-tab-btn {
+  padding: 10px 20px;
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.3s;
+}
+
+.repayment-tab-btn:hover {
+  background-color: var(--light-bg);
+  color: var(--primary-purple);
+}
+
+.repayment-tab-btn.active {
+  background-color: rgba(0, 175, 169, 0.1);
+  color: var(--primary-teal);
+}
+
+/* Filters & Search */
+.repayment-filters {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.repayment-search-input {
+  flex: 1;
+  min-width: 250px;
+}
+
+.repayment-select-filter {
+  min-width: 160px;
+}
+
+/* Badges */
+.repayment-status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: center;
+}
+
+.repayment-status-badge.pending {
+  background-color: rgba(243, 156, 18, 0.15);
+  color: var(--warning);
+}
+
+.repayment-status-badge.partial {
+  background-color: rgba(52, 152, 219, 0.15);
+  color: var(--info);
+}
+
+.repayment-status-badge.paid {
+  background-color: rgba(39, 174, 96, 0.15);
+  color: var(--success);
+}
+
+.repayment-status-badge.overdue {
+  background-color: rgba(231, 76, 60, 0.15);
+  color: var(--danger);
+}
+
+/* Dialog Overlay */
+.receipt-dialog-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(4px);
+}
+
+.receipt-dialog-container {
+  background: white;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  animation: modal-enter 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes modal-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.receipt-dialog-header {
+  padding: 20px 24px;
+  background: linear-gradient(135deg, var(--primary-teal) 0%, var(--primary-purple) 100%);
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.receipt-dialog-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.receipt-close-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.receipt-close-btn:hover {
+  opacity: 1;
+}
+
+.receipt-dialog-body {
+  padding: 24px;
+}
+
+/* Receipt Formatting */
+.repayment-receipt-box {
+  border: 1px dashed var(--border-color);
+  background-color: var(--light-bg);
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+}
+
+.receipt-logo {
+  text-align: center;
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 12px;
+  color: var(--primary-purple);
+}
+
+.receipt-divider {
+  border-top: 1px dashed var(--border-color);
+  margin: 12px 0;
+}
+
+.receipt-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.receipt-row.total {
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--primary-purple);
+}
