@@ -63,6 +63,7 @@ public class BankTransactionMapper {
                 .accountId(tx.getAccount() != null ? tx.getAccount().getId() : null)
                 .accountNumber(tx.getAccount() != null ? tx.getAccount().getAccountNumber() : null)
                 .accountName(tx.getAccount() != null ? tx.getAccount().getAccountName() : null)
+                .interestRate(tx.getLoanProduct() != null ? tx.getLoanProduct().getInterestRate() : null)
                 .build();
     }
 }

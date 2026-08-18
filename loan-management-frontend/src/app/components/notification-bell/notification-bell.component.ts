@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, inject, signal, HostListener, ElementRef 
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { NotificationService, NotificationResponse } from '../../core/services/notification.service';
+import { WebSocketService, NotificationMessage } from '../../core/services/websocket.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -57,26 +58,60 @@ import { Subscription } from 'rxjs';
 })
 export class NotificationBellComponent implements OnInit, OnDestroy {
   notificationService = inject(NotificationService);
+  webSocketService = inject(WebSocketService);
   elementRef = inject(ElementRef);
 
   dropdownOpen = signal<boolean>(false);
   unreadCount = signal<number>(0);
   recentNotifications = signal<NotificationResponse[]>([]);
 
-  private pollIntervalId: any;
+  private notificationSubscription: Subscription | null = null;
 
   ngOnInit() {
     this.fetchData();
-    // Poll notifications every 10 seconds for real-time updates
-    this.pollIntervalId = setInterval(() => {
-      this.fetchData();
-    }, 10000);
+    this.connectWebSocket();
   }
 
   ngOnDestroy() {
-    if (this.pollIntervalId) {
-      clearInterval(this.pollIntervalId);
+    if (this.notificationSubscription) {
+      this.notificationSubscription.unsubscribe();
     }
+    this.webSocketService.disconnect();
+  }
+
+  connectWebSocket() {
+    this.webSocketService.connect();
+
+    this.notificationSubscription = this.webSocketService.getNotifications().subscribe({
+      next: (notification: NotificationMessage) => {
+        console.log('[NotificationBell] Received WebSocket notification:', notification);
+        this.handleNewNotification(notification);
+      },
+      error: (err) => console.error('[NotificationBell] WebSocket error:', err)
+    });
+  }
+
+  handleNewNotification(notification: NotificationMessage) {
+    // Increment unread count
+    this.unreadCount.update(count => count + 1);
+
+    // Add to recent notifications (at the beginning)
+    const notificationResponse: NotificationResponse = {
+      id: notification.id,
+      userId: notification.userId,
+      title: notification.title,
+      message: notification.message,
+      notificationType: notification.notificationType,
+      deliveryType: 'WEBSOCKET',
+      status: 'DELIVERED',
+      isRead: notification.isRead,
+      createdAt: notification.createdAt
+    };
+
+    this.recentNotifications.update(notifications => {
+      const updated = [notificationResponse, ...notifications];
+      return updated.slice(0, 5); // Keep only top 5
+    });
   }
 
   fetchData() {

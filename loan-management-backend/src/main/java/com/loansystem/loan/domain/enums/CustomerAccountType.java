@@ -1,8 +1,14 @@
 package com.loansystem.loan.domain.enums;
 
 public enum CustomerAccountType {
-    /** Receives loan disbursement funds. */
-    SAVING,
-    /** Source of monthly repayment deductions. */
-    REPAYMENT
+    /**
+     * The single unified customer account.
+     * Replaces the old SAVING + REPAYMENT pair.
+     *
+     * - Credited on loan disbursement.
+     * - Debited on loan repayment.
+     * - Credited on customer deposit.
+     * - Debited on customer withdrawal.
+     */
+    MY_ACCOUNT
 }

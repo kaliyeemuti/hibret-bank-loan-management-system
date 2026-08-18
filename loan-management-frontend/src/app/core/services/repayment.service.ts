@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { Observable, of } from 'rxjs';
+import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
 export interface RepaymentResponse {
@@ -13,10 +13,13 @@ export interface RepaymentResponse {
   paymentDate: string | null;
   amountDue: number;
   amountPaid: number;
+  principalAmount: number;
+  interestAmount: number;
   remainingBalance: number;
   paymentMethod: string | null;
-  status: string;
+  status: 'PENDING' | 'PAID' | 'OVERDUE' | 'PARTIALLY_PAID';
   remarks: string | null;
+  interestRate: number | null;
 }
 
 export interface RepaymentRequest {
@@ -34,96 +37,82 @@ export class RepaymentService {
 
   constructor(private http: HttpClient) {}
 
-  getRepayments(): Observable<RepaymentResponse[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/api/repayment-schedules`).pipe(
-      map(schedules => this.mapSchedulesToRepayments(schedules))
-    );
-  }
-
-  getRepaymentById(id: number): Observable<RepaymentResponse> {
-    return this.http.get<any>(`${this.apiUrl}/api/repayment-schedules/${id}`).pipe(
-      map(schedule => this.mapScheduleToRepayment(schedule))
+  /**
+   * Returns all repayment schedule installments for the authenticated customer.
+   * Uses the customer-scoped /my-schedules endpoint to prevent data leakage.
+   */
+  getCustomerRepayments(): Observable<RepaymentResponse[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/api/repayment-schedules/my-schedules`).pipe(
+      map(schedules => schedules.map(s => this.mapScheduleToRepayment(s)))
     );
   }
 
   getRepaymentsByLoan(loanId: number): Observable<RepaymentResponse[]> {
     return this.http.get<any[]>(`${this.apiUrl}/api/repayment-schedules/loan-application/${loanId}`).pipe(
-      map(schedules => this.mapSchedulesToRepayments(schedules))
+      map(schedules => schedules.map(s => this.mapScheduleToRepayment(s)))
     );
   }
 
-  getCustomerRepayments(): Observable<RepaymentResponse[]> {
-    // Fetches all repayment schedules. The backend /api/repayment-schedules
-    // endpoint returns only schedules belonging to the authenticated user's
-    // loans (filtered server-side via the JWT context).
-    return this.http.get<any[]>(`${this.apiUrl}/api/repayment-schedules`).pipe(
-      map(schedules => this.mapSchedulesToRepayments(schedules))
-    );
-  }
-
-  payRepayment(request: RepaymentRequest): Observable<RepaymentResponse> {
-    // Simulate payment - in real implementation, this would call a backend endpoint
-    return this.http.post<any>(`${this.apiUrl}/api/repayment-schedules/${request.repaymentId}/pay`, request).pipe(
-      map(schedule => this.mapScheduleToRepayment(schedule))
-    );
-  }
-
-  updateRepayment(id: number, request: Partial<RepaymentRequest>): Observable<RepaymentResponse> {
-    return this.http.put<any>(`${this.apiUrl}/api/repayment-schedules/${id}`, request).pipe(
-      map(schedule => this.mapScheduleToRepayment(schedule))
+  /**
+   * Pay a specific installment by its ID.
+   * The backend uses the installment's own totalPayment as the amount.
+   */
+  payRepayment(request: RepaymentRequest): Observable<any> {
+    return this.http.post<any>(
+      `${this.apiUrl}/api/repayment-schedules/${request.repaymentId}/pay`,
+      {
+        amount: request.amount,
+        paymentMethod: request.paymentMethod,
+        remarks: request.remarks
+      }
     );
   }
 
   getRepaymentStats(): Observable<any> {
-    // Calculate stats from all schedules
-    return this.http.get<any[]>(`${this.apiUrl}/api/repayment-schedules`).pipe(
+    return this.getCustomerRepayments().pipe(
       map(schedules => {
         const totalPaid = schedules
           .filter(s => s.status === 'PAID')
-          .reduce((sum, s) => sum + (s.totalPayment || 0), 0);
-        
+          .reduce((sum, s) => sum + s.amountDue, 0);
         const remainingBalance = schedules
           .filter(s => s.status !== 'PAID')
-          .reduce((sum, s) => sum + (s.remainingBalance || 0), 0);
-        
-        const overdueInstallments = schedules.filter(s => 
-          s.status === 'PENDING' && new Date(s.dueDate) < new Date()
-        ).length;
-        
+          .reduce((sum, s) => sum + s.remainingBalance, 0);
         const totalInstallments = schedules.length;
         const paidInstallments = schedules.filter(s => s.status === 'PAID').length;
-        const repaymentProgress = totalInstallments > 0 ? Math.round((paidInstallments / totalInstallments) * 100) : 0;
-        
+        const repaymentProgress = totalInstallments > 0
+          ? Math.round((paidInstallments / totalInstallments) * 100)
+          : 0;
         return {
           totalPaid,
           remainingBalance,
-          overdueInstallments,
+          overdueInstallments: schedules.filter(s => s.status === 'OVERDUE').length,
           upcomingInstallments: schedules.filter(s => s.status === 'PENDING').length,
-          completedLoans: 0, // Would need loan-level status
+          completedLoans: 0,
           repaymentProgress
         };
       })
     );
   }
 
-  private mapSchedulesToRepayments(schedules: any[]): RepaymentResponse[] {
-    return schedules.map(schedule => this.mapScheduleToRepayment(schedule));
-  }
-
-  private mapScheduleToRepayment(schedule: any): RepaymentResponse {
+  private mapScheduleToRepayment(s: any): RepaymentResponse {
+    // The /my-schedules endpoint returns RepaymentScheduleResponse DTO fields.
+    // loanApplicationId and loanApplicationNumber come directly.
     return {
-      id: schedule.id,
-      loanId: schedule.loanApplication?.id || 0,
-      loanApplicationNumber: schedule.loanApplication?.applicationNumber || `APP-${schedule.loanApplication?.id}`,
-      installmentNumber: schedule.installmentNumber,
-      dueDate: schedule.dueDate,
-      paymentDate: schedule.paidDate || null,
-      amountDue: schedule.totalPayment || 0,
-      amountPaid: schedule.status === 'PAID' ? (schedule.totalPayment || 0) : 0,
-      remainingBalance: schedule.remainingBalance || 0,
+      id: s.id,
+      loanId: s.loanApplicationId || 0,
+      loanApplicationNumber: s.loanApplicationNumber || `APP-${s.loanApplicationId}`,
+      installmentNumber: s.installmentNumber,
+      dueDate: s.dueDate,
+      paymentDate: s.paidDate || null,
+      amountDue: s.totalPayment || 0,
+      amountPaid: s.status === 'PAID' ? (s.totalPayment || 0) : 0,
+      principalAmount: s.principalAmount || 0,
+      interestAmount: s.interestAmount || 0,
+      remainingBalance: s.remainingBalance || 0,
       paymentMethod: null,
-      status: schedule.status || 'PENDING',
-      remarks: null
+      status: s.status || 'PENDING',
+      remarks: null,
+      interestRate: s.interestRate || null
     };
   }
 }

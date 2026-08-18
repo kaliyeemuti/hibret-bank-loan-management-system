@@ -1,25 +1,14 @@
 package com.loansystem.loan.application.service.impl;
 
+import com.loansystem.loan.application.dto.response.RepaymentScheduleResponse;
 import com.loansystem.loan.application.service.RepaymentScheduleService;
 import com.loansystem.loan.application.service.NotificationService;
-import com.loansystem.loan.domain.entity.BankTransaction;
-import com.loansystem.loan.domain.entity.LoanApplication;
-import com.loansystem.loan.domain.entity.RepaymentSchedule;
-import com.loansystem.loan.domain.entity.User;
-import com.loansystem.loan.domain.enums.LoanApplicationStatus;
-import com.loansystem.loan.domain.enums.LoanType;
-import com.loansystem.loan.domain.repository.BankTransactionRepository;
-import com.loansystem.loan.domain.repository.LoanApplicationRepository;
-import com.loansystem.loan.domain.repository.RepaymentScheduleRepository;
-import com.loansystem.loan.domain.repository.UserRepository;
-import com.loansystem.loan.domain.repository.AccountRepository;
-import com.loansystem.loan.domain.repository.CustomerAccountRepository;
-import com.loansystem.loan.domain.entity.Account;
-import com.loansystem.loan.domain.entity.CustomerAccount;
-import com.loansystem.loan.domain.enums.CustomerAccountType;
-import com.loansystem.loan.domain.enums.EligibilityStatus;
+import com.loansystem.loan.domain.entity.*;
+import com.loansystem.loan.domain.enums.*;
+import com.loansystem.loan.domain.repository.*;
 import com.loansystem.loan.infrastructure.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,137 +29,175 @@ public class RepaymentScheduleServiceImpl implements RepaymentScheduleService {
     private final AccountRepository accountRepository;
     private final CustomerAccountRepository customerAccountRepository;
 
-    private LoanType mapProductToLoanType(String productName) {
-        if (productName == null) {
-            throw new IllegalArgumentException("Loan product name cannot be null");
-        }
-        String normalized = productName.toLowerCase();
-        if (normalized.contains("personal")) {
-            return LoanType.PERSONAL_LOAN;
-        } else if (normalized.contains("business")) {
-            return LoanType.BUSINESS_LOAN;
-        } else if (normalized.contains("home")) {
-            return LoanType.HOME_LOAN;
-        } else if (normalized.contains("auto") || normalized.contains("vehicle")) {
-            return LoanType.VEHICLE_LOAN;
-        } else {
-            throw new IllegalArgumentException("Unknown loan product type: " + productName);
-        }
+    // ── Helper: resolve current authenticated user ───────────────────────────
+    private User getAuthenticatedUser() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Authenticated user not found"));
     }
 
+    // ── Helper: map loan product name to LoanType ────────────────────────────
+    private LoanType mapProductToLoanType(String productName) {
+        if (productName == null) throw new IllegalArgumentException("Loan product name cannot be null");
+        String n = productName.toLowerCase();
+        if (n.contains("personal"))               return LoanType.PERSONAL_LOAN;
+        if (n.contains("business"))               return LoanType.BUSINESS_LOAN;
+        if (n.contains("home"))                   return LoanType.HOME_LOAN;
+        if (n.contains("auto") || n.contains("vehicle")) return LoanType.VEHICLE_LOAN;
+        throw new IllegalArgumentException("Unknown loan product type: " + productName);
+    }
+
+    // ── Helper: map entity → DTO ─────────────────────────────────────────────
+    private RepaymentScheduleResponse toDto(RepaymentSchedule rs) {
+        LoanApplication loan = rs.getLoanApplication();
+        BigDecimal rate = (loan != null && loan.getLoanProduct() != null)
+                ? loan.getLoanProduct().getInterestRate()
+                : null;
+        return RepaymentScheduleResponse.builder()
+                .id(rs.getId())
+                .installmentNumber(rs.getInstallmentNumber())
+                .dueDate(rs.getDueDate())
+                .principalAmount(rs.getPrincipalAmount())
+                .interestAmount(rs.getInterestAmount())
+                .totalPayment(rs.getTotalPayment())
+                .remainingBalance(rs.getRemainingBalance())
+                .status(rs.getStatus() != null ? rs.getStatus().name() : "PENDING")
+                .paidDate(rs.getPaidDate())
+                .loanApplicationId(loan != null ? loan.getId() : null)
+                .loanApplicationNumber(loan != null ? loan.getApplicationNumber() : null)
+                .interestRate(rate)
+                .build();
+    }
+
+    // ── getScheduleByLoanApplicationId ───────────────────────────────────────
     @Override
     @Transactional(readOnly = true)
     public List<RepaymentSchedule> getScheduleByLoanApplicationId(Long loanApplicationId) {
         return repaymentScheduleRepository.findByLoanApplicationId(loanApplicationId);
     }
 
+    // ── getMySchedules (customer-scoped) ─────────────────────────────────────
+    @Override
+    @Transactional(readOnly = true)
+    public List<RepaymentScheduleResponse> getMySchedules() {
+        User currentUser = getAuthenticatedUser();
+        return repaymentScheduleRepository.findByCustomerUser(currentUser)
+                .stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    // ── payRepayment ─────────────────────────────────────────────────────────
     @Override
     @Transactional
-    public RepaymentSchedule payRepayment(Long repaymentId, BigDecimal amount, String paymentMethod, String remarks) {
-        RepaymentSchedule schedule = repaymentScheduleRepository.findById(repaymentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Repayment schedule installment not found with id: " + repaymentId));
+    public RepaymentSchedule payRepayment(Long repaymentId, BigDecimal amount,
+                                          String paymentMethod, String remarks) {
 
+        // 1. Load installment
+        RepaymentSchedule schedule = repaymentScheduleRepository.findById(repaymentId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Repayment schedule installment not found with id: " + repaymentId));
+
+        // 2. Duplicate-payment guard
         if (schedule.getStatus() == RepaymentSchedule.PaymentStatus.PAID) {
-            throw new IllegalArgumentException("Repayment schedule installment is already paid");
+            throw new IllegalArgumentException("This installment is already paid.");
         }
 
+        // 3. Resolve loan + customer
         LoanApplication loan = schedule.getLoanApplication();
         if (loan == null) {
             throw new IllegalStateException("Repayment schedule installment has no associated loan application");
         }
-
-        List<RepaymentSchedule> allSchedules = repaymentScheduleRepository.findByLoanApplicationId(loan.getId());
-        BigDecimal totalOutstanding = allSchedules.stream()
-                .filter(s -> s.getStatus() != RepaymentSchedule.PaymentStatus.PAID)
-                .map(RepaymentSchedule::getTotalPayment)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        if (amount.compareTo(totalOutstanding) > 0) {
-            throw new IllegalArgumentException("Repayment amount " + amount + " exceeds the remaining loan balance of " + totalOutstanding);
+        if (loan.getBusiness() == null || loan.getBusiness().getOwner() == null) {
+            throw new IllegalStateException("Cannot resolve customer from loan application");
         }
-
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Repayment amount must be greater than zero");
-        }
-        
-        User customerUser = null;
-        if (loan.getBusiness() != null && loan.getBusiness().getOwner() != null) {
-            customerUser = loan.getBusiness().getOwner().getUser();
-        }
-
+        User customerUser = loan.getBusiness().getOwner().getUser();
         if (customerUser == null) {
-            throw new IllegalStateException("Repayment cannot be processed because customer is not found.");
+            throw new IllegalStateException("Customer user not found for this loan application");
         }
 
-        // Lock and debit Customer's REPAYMENT account
-        CustomerAccount repaymentAccount = customerAccountRepository.findByOwnerAndTypeWithLock(customerUser, CustomerAccountType.REPAYMENT)
-                .orElseThrow(() -> new IllegalStateException("Customer repayment account not found"));
+        // 4. Use the installment's own totalPayment as the debit amount
+        BigDecimal installmentAmount = schedule.getTotalPayment();
 
-        if (repaymentAccount.getCurrentBalance().compareTo(amount) < 0) {
-            throw new IllegalArgumentException("Insufficient balance in repayment account");
+        // 5. Lock and validate Customer's MY ACCOUNT
+        CustomerAccount repaymentAccount = customerAccountRepository
+                .findByOwnerWithLock(customerUser)
+                .orElseThrow(() -> new IllegalStateException("Customer account (My Account) not found"));
+
+        BigDecimal repaymentBalance = repaymentAccount.getCurrentBalance() != null
+                ? repaymentAccount.getCurrentBalance() : BigDecimal.ZERO;
+
+        if (repaymentBalance.compareTo(BigDecimal.ZERO) == 0) {
+            throw new IllegalArgumentException(
+                    "No amount available to pay. Please deposit money into your Repayment Account first.");
+        }
+        if (repaymentBalance.compareTo(installmentAmount) < 0) {
+            throw new IllegalArgumentException(String.format(
+                    "Insufficient repayment balance. Required: %.2f ETB, Available: %.2f ETB.",
+                    installmentAmount, repaymentBalance));
         }
 
-        repaymentAccount.setCurrentBalance(repaymentAccount.getCurrentBalance().subtract(amount));
+        // 6. Debit Customer's REPAYMENT account
+        repaymentAccount.setCurrentBalance(repaymentBalance.subtract(installmentAmount));
         customerAccountRepository.save(repaymentAccount);
 
-        // Credit Bank's Loan Account
+        // 7. Credit the corresponding Bank loan account
         LoanType loanType = mapProductToLoanType(loan.getLoanProduct().getName());
         Account bankAccount = accountRepository.findByLoanType(loanType)
                 .orElseThrow(() -> new IllegalStateException("Bank account for loan type not found"));
 
-        BigDecimal balanceBefore = bankAccount.getCurrentBalance() != null ? bankAccount.getCurrentBalance() : BigDecimal.ZERO;
-        BigDecimal balanceAfter = balanceBefore.add(amount);
+        BigDecimal balanceBefore = bankAccount.getCurrentBalance() != null
+                ? bankAccount.getCurrentBalance() : BigDecimal.ZERO;
+        BigDecimal balanceAfter = balanceBefore.add(installmentAmount);
         bankAccount.setCurrentBalance(balanceAfter);
         accountRepository.save(bankAccount);
 
+        // 8. Mark installment PAID
         schedule.setStatus(RepaymentSchedule.PaymentStatus.PAID);
         schedule.setPaidDate(LocalDate.now());
         repaymentScheduleRepository.save(schedule);
 
+        // 9. Create LOAN_REPAYMENT transaction
         BankTransaction transaction = BankTransaction.builder()
-                .transactionType(com.loansystem.loan.domain.enums.TransactionType.LOAN_REPAYMENT)
-                .amount(amount)
+                .transactionType(TransactionType.LOAN_REPAYMENT)
+                .amount(installmentAmount)
                 .balanceBefore(balanceBefore)
                 .balanceAfter(balanceAfter)
-                .description("Repayment for installment #" + schedule.getInstallmentNumber() + " of loan " + loan.getApplicationNumber())
+                .description("Repayment for installment #" + schedule.getInstallmentNumber()
+                        + " of loan " + loan.getApplicationNumber())
                 .transactionDate(LocalDateTime.now())
+                .account(bankAccount)
                 .loanApplication(loan)
                 .loanProduct(loan.getLoanProduct())
-                .customer(loan.getBusiness() != null && loan.getBusiness().getOwner() != null ? loan.getBusiness().getOwner().getUser() : null)
-                .createdBy(loan.getBusiness() != null && loan.getBusiness().getOwner() != null ? loan.getBusiness().getOwner().getUser() : null)
+                .customer(customerUser)
+                .createdBy(customerUser)
                 .repayment(schedule)
                 .build();
         bankTransactionRepository.save(transaction);
 
-        // Check if all installments are paid to mark the loan as COMPLETED
-        boolean hasPendingInstallments = allSchedules.stream()
-                .anyMatch(s -> s.getStatus() != RepaymentSchedule.PaymentStatus.PAID && !s.getId().equals(repaymentId));
+        // 10. Check if all installments are now paid → mark loan COMPLETED
+        List<RepaymentSchedule> allSchedules =
+                repaymentScheduleRepository.findByLoanApplicationId(loan.getId());
+        boolean hasAnyPending = allSchedules.stream()
+                .anyMatch(s -> s.getStatus() != RepaymentSchedule.PaymentStatus.PAID
+                               && !s.getId().equals(repaymentId));
 
-        if (!hasPendingInstallments) {
+        if (!hasAnyPending) {
             loan.setStatus(LoanApplicationStatus.COMPLETED);
             loanApplicationRepository.save(loan);
-
-            // Notify customer
-            if (loan.getBusiness() != null && loan.getBusiness().getOwner() != null) {
-                User customer = loan.getBusiness().getOwner().getUser();
-                if (customer != null) {
-                    customer.setEligibilityStatus(EligibilityStatus.ELIGIBLE);
-                    userRepository.save(customer);
-                    notificationService.sendNotification(customer, "Loan Fully Repaid!",
-                            "Congratulations! Your loan " + loan.getApplicationNumber() + " has been fully repaid and is now COMPLETED.",
-                            "LOAN_COMPLETED");
-                }
-            }
+            customerUser.setEligibilityStatus(EligibilityStatus.ELIGIBLE);
+            userRepository.save(customerUser);
+            notificationService.sendNotification(customerUser, "Loan Fully Repaid!",
+                    "Congratulations! Your loan " + loan.getApplicationNumber()
+                            + " has been fully repaid and is now COMPLETED. "
+                            + "You are now ELIGIBLE to apply for a new loan.",
+                    "LOAN_COMPLETED");
         } else {
-            // Notify customer about successful installment payment
-            if (loan.getBusiness() != null && loan.getBusiness().getOwner() != null) {
-                User customer = loan.getBusiness().getOwner().getUser();
-                if (customer != null) {
-                    notificationService.sendNotification(customer, "Repayment Recorded",
-                            "Payment of " + amount + " ETB for installment #" + schedule.getInstallmentNumber() + " of loan " + loan.getApplicationNumber() + " was recorded successfully.",
-                            "LOAN_REPAYMENT");
-                }
-            }
+            notificationService.sendNotification(customerUser, "Repayment Recorded",
+                    "Payment of " + installmentAmount + " ETB for installment #"
+                            + schedule.getInstallmentNumber() + " of loan "
+                            + loan.getApplicationNumber() + " was recorded successfully.",
+                    "LOAN_REPAYMENT");
         }
 
         return schedule;

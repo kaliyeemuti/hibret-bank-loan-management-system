@@ -5,6 +5,9 @@ import { TransactionService } from '../../../core/services/transaction.service';
 import { RepaymentService, RepaymentResponse } from '../../../core/services/repayment.service';
 import { DashboardService } from '../../../core/services/dashboard.service';
 import { BackButtonComponent } from '../../../components/back-button/back-button.component';
+import { LoanService } from '../../../core/services/loan.service';
+import { forkJoin, of, Observable } from 'rxjs';
+import { switchMap, catchError, map } from 'rxjs/operators';
 
 type ActiveTab = 'transactions' | 'repayments';
 
@@ -450,6 +453,7 @@ export class TransactionsComponent implements OnInit {
   transactionService = inject(TransactionService);
   repaymentService   = inject(RepaymentService);
   dashboardService   = inject(DashboardService);
+  loanService        = inject(LoanService);
 
   // ── Tab state ─────────────────────────────────────────────────────
   activeTab    = signal<ActiveTab>('transactions');
@@ -507,7 +511,7 @@ export class TransactionsComponent implements OnInit {
       );
     }
     const tab = this.repaymentTab();
-    if (tab === 'pending') list = list.filter(r => r.status === 'PENDING' || r.status === 'PARTIAL');
+    if (tab === 'pending') list = list.filter(r => r.status === 'PENDING' || r.status === 'PARTIALLY_PAID');
     if (tab === 'overdue') list = list.filter(r => r.status === 'OVERDUE');
     if (tab === 'paid')    list = list.filter(r => r.status === 'PAID');
     return list;
@@ -587,19 +591,37 @@ export class TransactionsComponent implements OnInit {
   // ── Repayment methods ──────────────────────────────────────────────
   loadRepayments() {
     this.rpLoading = true;
-    this.repaymentService.getRepayments().subscribe({
-      next: (data) => {
+    this.loanService.getLoanApplications().pipe(
+      switchMap(loans => {
+        const activeLoans = loans.filter(l => l.status === 'DISBURSED' || l.status === 'COMPLETED');
+        if (activeLoans.length === 0) {
+          return of([] as RepaymentResponse[]);
+        }
+        const requests = activeLoans.map(loan =>
+          this.repaymentService.getRepaymentsByLoan(loan.id).pipe(
+            catchError(err => {
+              console.error(`Error loading repayments for loan ${loan.id}:`, err);
+              return of([] as RepaymentResponse[]);
+            })
+          )
+        );
+        return forkJoin(requests).pipe(
+          map(results => results.reduce((acc, curr) => acc.concat(curr), [] as RepaymentResponse[]))
+        );
+      })
+    ).subscribe({
+      next: (data: RepaymentResponse[]) => {
         this.repayments.set(data || []);
         this.rpLoading = false;
       },
-      error: (err) => {
+      error: (err: any) => {
         console.error('Error fetching repayments:', err);
         this.rpLoading = false;
       }
     });
 
     this.repaymentService.getRepaymentStats().subscribe({
-      next:  (s) => this.repaymentStats.set(s),
+      next:  (s: any) => this.repaymentStats.set(s),
       error: ()  => {}
     });
   }
@@ -625,20 +647,16 @@ export class TransactionsComponent implements OnInit {
     this.editError   = '';
     this.editSuccess = '';
 
-    this.repaymentService.updateRepayment(item.id, {
-      amount: this.editForm.amount,
-      remarks: this.editForm.remarks
-    }).subscribe({
-      next: () => {
-        this.editSaving  = false;
-        this.editSuccess = 'Record updated successfully.';
-        this.loadRepayments();
-        setTimeout(() => this.closeEditModal(), 1200);
-      },
-      error: (err) => {
-        this.editSaving = false;
-        this.editError  = err.error?.message || 'Failed to update record.';
-      }
-    });
+    // Simulate local update since backend doesn't support manual modification
+    item.amountDue = this.editForm.amount;
+    item.remainingBalance = this.editForm.amount - item.amountPaid;
+    item.remarks = this.editForm.remarks;
+
+    setTimeout(() => {
+      this.editSaving  = false;
+      this.editSuccess = 'Record updated successfully (Simulation).';
+      this.repayments.set([...this.repayments()]);
+      setTimeout(() => this.closeEditModal(), 1200);
+    }, 800);
   }
 }

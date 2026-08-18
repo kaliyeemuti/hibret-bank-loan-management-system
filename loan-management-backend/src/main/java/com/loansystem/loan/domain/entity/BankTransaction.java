@@ -22,7 +22,7 @@ public class BankTransaction {
 
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "transaction_type", nullable = false)
+    @Column(name = "transaction_type", nullable = false, length = 50)
     private TransactionType transactionType;
 
 

@@ -1,6 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   HIBRET BANK — LANDING PAGE STYLES  v2
-   Palette: Deep purple · Emerald green · White · Soft mint
+   HIBRET BANK — LANDING PAGE STYLES
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Palette tokens ─────────────────────────────────────────────────────── */
@@ -48,17 +47,18 @@
 .lp-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   text-decoration: none;
 }
 
 .lp-logo {
-  height: 68px;
+  height: 48px;
   width: auto;
   object-fit: contain;
 }
 
 .lp-logo-fallback {
+  display: flex;
   align-items: center;
   gap: 10px;
 }
@@ -67,36 +67,28 @@
 .lp-logo-text {
   font-size: 20px;
   font-weight: 800;
-  color: var(--lp-purple);
+  color: #5B2D8E;
 }
 
 .lp-nav-links {
   display: flex;
   align-items: center;
   gap: 14px;
-}
-
-.lp-nav-btn {
-  padding: 9px 24px;
-  border-radius: 100px;
-  font-size: 14px;
-  font-weight: 600;
-  text-decoration: none;
   transition: all 0.22s ease;
   white-space: nowrap;
 }
 
 .lp-nav-login {
-  color: var(--lp-purple);
+  color: #5B2D8E;
   border: 2px solid transparent;
 }
 .lp-nav-login:hover {
-  color: var(--lp-green-dark);
+  color: #16a34a;
   background: rgba(34, 197, 94, 0.08);
 }
 
 .lp-nav-register {
-  background: linear-gradient(135deg, var(--lp-green), var(--lp-green-dark));
+  background: linear-gradient(135deg, #22c55e, #16a34a);
   color: white;
   border: 2px solid transparent;
   box-shadow: 0 4px 16px rgba(34, 197, 94, 0.3);
@@ -112,62 +104,13 @@
 .lp-hero {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(145deg, var(--lp-purple-deep) 0%, var(--lp-purple-dark) 40%, #6d28d9 75%, #5B2D8E 100%);
+  background: linear-gradient(145deg, #1e0d3f 0%, #3a1a6e 40%, #6d28d9 75%, #5B2D8E 100%);
   padding: 90px 0 110px;
   min-height: 90vh;
   display: flex;
   align-items: center;
 }
 
-/* Organic background shapes */
-.lp-hero-bg {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.lp-hero-blob {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(90px);
-}
-.lp-blob-1 {
-  width: 700px; height: 700px;
-  background: radial-gradient(circle, rgba(34,197,94,0.22), transparent 70%);
-  top: -260px; right: -80px;
-  animation: lp-pulse 8s ease-in-out infinite;
-}
-.lp-blob-2 {
-  width: 500px; height: 500px;
-  background: radial-gradient(circle, rgba(139,92,246,0.3), transparent 70%);
-  bottom: -180px; left: 5%;
-  animation: lp-pulse 10s ease-in-out infinite 3s;
-}
-.lp-blob-3 {
-  width: 350px; height: 350px;
-  background: radial-gradient(circle, rgba(34,197,94,0.18), transparent 70%);
-  top: 30%; left: 28%;
-  animation: lp-pulse 6s ease-in-out infinite 1.5s;
-}
-
-@keyframes lp-pulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50%       { transform: scale(1.12); opacity: 0.75; }
-}
-
-/* Decorative mesh lines */
-.lp-hero-bg::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-  background-size: 60px 60px;
-}
-
-/* ── HERO GRID — 3 columns: Logo | Text | Visual ─────────────────────── */
 .lp-hero-inner {
   position: relative;
   z-index: 1;
@@ -175,8 +118,8 @@
   margin: 0 auto;
   padding: 0 40px;
   display: grid;
-  grid-template-columns: 320px 1fr 1fr;
-  gap: 56px;
+  grid-template-columns: 260px 1fr 1fr;
+  gap: 48px;
   align-items: center;
   width: 100%;
 }
@@ -191,8 +134,8 @@
 
 .lp-hero-logo-ring {
   position: relative;
-  width: 240px;
-  height: 240px;
+  width: 220px;
+  height: 220px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -502,7 +445,7 @@
   margin-bottom: 18px;
 }
 .lp-card-logo {
-  height: 30px;
+  height: 32px;
   width: auto;
   object-fit: contain;
   filter: brightness(0) invert(1);
@@ -591,7 +534,7 @@
 .lp-card-float--pill p {
   margin: 0;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.6);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

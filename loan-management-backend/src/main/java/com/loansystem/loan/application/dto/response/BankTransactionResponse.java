@@ -41,4 +41,7 @@ public class BankTransactionResponse {
     private Long accountId;
     private String accountNumber;
     private String accountName;
+
+    /** Interest rate from the related loan product (if applicable) */
+    private BigDecimal interestRate;
 }

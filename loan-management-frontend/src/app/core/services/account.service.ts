@@ -38,4 +38,12 @@ export class AccountService {
   getMyCustomerAccounts(): Observable<any[]> {
     return this.http.get<any[]>(`${this.apiUrl}/api/customer-accounts/my-accounts`);
   }
+
+  depositToRepaymentAccount(amount: number): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/api/customer-accounts/deposit`, { amount });
+  }
+
+  withdrawFromAccount(amount: number): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/api/customer-accounts/withdraw`, { amount });
+  }
 }

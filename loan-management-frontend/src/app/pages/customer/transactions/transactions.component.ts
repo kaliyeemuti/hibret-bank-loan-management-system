@@ -156,6 +156,7 @@ import { TransactionService } from '../../../core/services/transaction.service';
                   <th style="text-align:right;">Amount (ETB)</th>
                   <th>Description</th>
                   <th>Loan / App</th>
+                  <th>Interest Rate</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -201,6 +202,13 @@ import { TransactionService } from '../../../core/services/transaction.service';
                       {{ tx.loanApplicationNumber }}
                     </span>
                     <span *ngIf="!tx.loanApplicationNumber" style="opacity:.5;">—</span>
+                  </td>
+
+                  <td style="font-size:13px;">
+                    <span *ngIf="tx.interestRate != null" style="font-weight:600;">
+                      {{ tx.interestRate }}%
+                    </span>
+                    <span *ngIf="tx.interestRate == null" style="opacity:.5;">—</span>
                   </td>
 
                   <td>

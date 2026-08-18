@@ -8,21 +8,21 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * Personal account belonging to a customer.
- * Each customer has TWO rows — one SAVING and one REPAYMENT account.
+ * The single unified customer account (MY_ACCOUNT).
+ * One row per customer — no longer split into SAVING / REPAYMENT.
  *
- * SAVING    — credited when a loan is disbursed.
- * REPAYMENT — debited when the customer makes a monthly repayment.
+ * Credited on:  loan disbursement, customer deposit.
+ * Debited on:   loan repayment, customer withdrawal.
  *
  * Balance updates are always performed inside a @Transactional service method
- * so either both sides of a transfer succeed or both roll back.
+ * so all side-effects (balance + transaction record) succeed or all roll back.
  */
 @Entity
 @Table(
     name = "customer_accounts",
     uniqueConstraints = @UniqueConstraint(
-        name = "uk_customer_account_type",
-        columnNames = {"user_id", "account_type"}
+        name = "uk_customer_accounts_user",
+        columnNames = {"user_id"}
     )
 )
 @Getter

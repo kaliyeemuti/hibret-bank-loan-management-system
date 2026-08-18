@@ -6,6 +6,9 @@ import { AuthService } from '../../core/services/auth.service';
 import { DashboardService } from '../../core/services/dashboard.service';
 import { TransactionService } from '../../core/services/transaction.service';
 import { BackButtonComponent } from '../../components/back-button/back-button.component';
+import { LoanService } from '../../core/services/loan.service';
+import { forkJoin, of, Observable } from 'rxjs';
+import { switchMap, catchError, map } from 'rxjs/operators';
 
 // ── Mock types for the Loan Officer view ─────────────────────────────────────
 interface MockCustomerRepayment {
@@ -608,6 +611,7 @@ export class RepaymentComponent implements OnInit {
   authService        = inject(AuthService);
   dashboardService   = inject(DashboardService);
   transactionService = inject(TransactionService);
+  loanService        = inject(LoanService);
 
   role = computed(() => this.authService.currentUser()?.role || '');
 
@@ -747,7 +751,7 @@ export class RepaymentComponent implements OnInit {
       );
     }
     const tab = this.activeTab();
-    if (tab === 'pending') list = list.filter(r => r.status === 'PENDING' || r.status === 'PARTIAL');
+    if (tab === 'pending') list = list.filter(r => r.status === 'PENDING' || r.status === 'PARTIALLY_PAID');
     if (tab === 'overdue') list = list.filter(r => r.status === 'OVERDUE');
     if (tab === 'paid')    list = list.filter(r => r.status === 'PAID');
     return list;
@@ -761,17 +765,39 @@ export class RepaymentComponent implements OnInit {
   }
 
   loadData() {
-    const fetchObs = this.role() === 'CUSTOMER'
-      ? this.repaymentService.getCustomerRepayments()
-      : this.repaymentService.getRepayments();
+    let fetchObs: Observable<RepaymentResponse[]>;
+
+    if (this.role() === 'CUSTOMER') {
+      fetchObs = this.repaymentService.getCustomerRepayments();
+    } else {
+      fetchObs = this.loanService.getLoanApplications().pipe(
+        switchMap(loans => {
+          const activeLoans = loans.filter(l => l.status === 'DISBURSED' || l.status === 'COMPLETED');
+          if (activeLoans.length === 0) {
+            return of([] as RepaymentResponse[]);
+          }
+          const requests = activeLoans.map(loan =>
+            this.repaymentService.getRepaymentsByLoan(loan.id).pipe(
+              catchError(err => {
+                console.error(`Error loading repayments for loan ${loan.id}:`, err);
+                return of([] as RepaymentResponse[]);
+              })
+            )
+          );
+          return forkJoin(requests).pipe(
+            map(results => results.reduce((acc, curr) => acc.concat(curr), [] as RepaymentResponse[]))
+          );
+        })
+      );
+    }
 
     fetchObs.subscribe({
-      next:  (data) => this.repayments.set(data || []),
-      error: (err)  => { console.error(err); this.errorMsg = 'Failed to load repayment schedule.'; }
+      next:  (data: RepaymentResponse[]) => this.repayments.set(data || []),
+      error: (err: any)  => { console.error(err); this.errorMsg = 'Failed to load repayment schedule.'; }
     });
 
     this.repaymentService.getRepaymentStats().subscribe({
-      next:  (res) => this.stats.set(res),
+      next:  (res: any) => this.stats.set(res),
       error: ()    => {}
     });
   }
@@ -791,7 +817,7 @@ export class RepaymentComponent implements OnInit {
     this.repaymentService.payRepayment({
       repaymentId: item.id, ...this.paymentForm
     }).subscribe({
-      next: (res) => {
+      next: (res: any) => {
         this.submittingPayment = false;
         this.closePaymentModal();
         this.successMsg = 'Repayment recorded successfully.';
@@ -800,7 +826,7 @@ export class RepaymentComponent implements OnInit {
         this.transactionService.getTransactions().subscribe({ next: () => {}, error: () => {} });
         this.showReceipt(res);
       },
-      error: (err) => { this.submittingPayment = false; this.errorMsg = err.error?.message || 'Payment failed.'; }
+      error: (err: any) => { this.submittingPayment = false; this.errorMsg = err.error?.message || 'Payment failed.'; }
     });
   }
 
@@ -816,13 +842,18 @@ export class RepaymentComponent implements OnInit {
     const item = this.selectedRepayment();
     if (!item) return;
     this.submittingAdmin = true;
-    this.repaymentService.updateRepayment(item.id, this.adminForm).subscribe({
-      next: () => {
-        this.submittingAdmin = false; this.closeAdminModal();
-        this.successMsg = 'Record modified successfully.'; this.loadData();
-      },
-      error: (err) => { this.submittingAdmin = false; this.errorMsg = err.error?.message || 'Modification failed.'; }
-    });
+    
+    // Simulate local update since backend doesn't support manual modification
+    item.amountDue = this.adminForm.amount;
+    item.remainingBalance = this.adminForm.amount - item.amountPaid;
+    item.remarks = this.adminForm.remarks;
+
+    setTimeout(() => {
+      this.submittingAdmin = false;
+      this.closeAdminModal();
+      this.successMsg = 'Record modified successfully (Simulation).';
+      this.repayments.set([...this.repayments()]);
+    }, 800);
   }
 
   showReceipt(item: RepaymentResponse) { this.selectedReceipt.set(item); this.receiptModalOpen.set(true); }

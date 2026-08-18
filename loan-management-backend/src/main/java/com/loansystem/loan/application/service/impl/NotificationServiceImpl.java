@@ -5,6 +5,7 @@ import com.loansystem.loan.domain.entity.Notification;
 import com.loansystem.loan.domain.entity.User;
 import com.loansystem.loan.domain.repository.NotificationRepository;
 import com.loansystem.loan.domain.repository.UserRepository;
+import com.loansystem.loan.infrastructure.websocket.NotificationWebSocketController;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final NotificationWebSocketController notificationWebSocketController;
 
     private User getAuthenticatedUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -76,6 +78,11 @@ public class NotificationServiceImpl implements NotificationService {
                 .notificationType(type)
                 .isRead(false)
                 .build();
-        return notificationRepository.save(notification);
+        Notification savedNotification = notificationRepository.save(notification);
+        
+        // Push notification via WebSocket for real-time delivery
+        notificationWebSocketController.sendNotificationToUser(user.getId(), savedNotification);
+        
+        return savedNotification;
     }
 }

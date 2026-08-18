@@ -14,9 +14,6 @@ import com.loansystem.loan.domain.enums.LoanType;
 import com.loansystem.loan.domain.enums.TransactionType;
 import com.loansystem.loan.domain.enums.EligibilityStatus;
 import com.loansystem.loan.application.service.CustomerAccountService;
-import com.loansystem.loan.domain.enums.CustomerAccountType;
-import com.loansystem.loan.domain.repository.CustomerAccountRepository;
-import com.loansystem.loan.domain.entity.CustomerAccount;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -186,11 +183,11 @@ public class LoanReviewServiceImpl implements LoanReviewService {
                     throw new IllegalArgumentException("Bank account for loan type not found");
                 }
 
-                // Credit Customer's SAVING account
+                // Credit Customer's MY ACCOUNT (single unified account)
                 if (customerUser != null) {
-                    CustomerAccount savingAccount = customerAccountService.getOrCreateAccount(customerUser, CustomerAccountType.SAVING);
-                    savingAccount.setCurrentBalance(savingAccount.getCurrentBalance().add(loanAmount));
-                    customerAccountRepository.save(savingAccount);
+                    CustomerAccount myAccount = customerAccountService.getOrCreateAccount(customerUser);
+                    myAccount.setCurrentBalance(myAccount.getCurrentBalance().add(loanAmount));
+                    customerAccountRepository.save(myAccount);
                 }
 
                 application.setStatus(LoanApplicationStatus.DISBURSED);
