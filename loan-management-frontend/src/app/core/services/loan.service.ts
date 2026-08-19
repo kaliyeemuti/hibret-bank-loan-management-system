@@ -30,8 +30,12 @@ export class LoanService {
   }
 
   // Loan Applications
-  getLoanApplications(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/api/loan-applications`);
+  getLoanApplications(type?: string): Observable<any[]> {
+    const params: { [param: string]: string } = {};
+    if (type) {
+      params['type'] = type;
+    }
+    return this.http.get<any[]>(`${this.apiUrl}/api/loan-applications`, { params });
   }
 
   getLoanApplicationById(id: number): Observable<any> {

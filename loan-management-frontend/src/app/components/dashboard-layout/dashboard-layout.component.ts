@@ -43,8 +43,6 @@ export class DashboardLayoutComponent {
           { path: '/admin/banks',         label: 'Banks',        icon: '🏦' },
           { path: '/admin/transactions',  label: 'Transactions', icon: '💸' },
           { path: '/admin/users',         label: 'Users',        icon: '👥' },
-          { path: '/admin/loan-types',    label: 'Loan Types',   icon: '💰' },
-          { path: '/admin/reports',       label: 'Reports',      icon: '📈' },
           { path: '/profile',             label: 'Profile',      icon: '👤' },
         ];
       case 'CUSTOMER':

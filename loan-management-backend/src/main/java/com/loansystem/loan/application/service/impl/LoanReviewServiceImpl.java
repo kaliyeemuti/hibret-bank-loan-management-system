@@ -49,12 +49,16 @@ public class LoanReviewServiceImpl implements LoanReviewService {
                 .orElseThrow(() -> new RuntimeException("Authenticated user not found"));
     }
 
+
+
     /**
-     * Finds the existing LoanReview for the given application, or creates a new
+     * Finds the existing LoanReview for the given application and reviewer, or creates a new
      * (unsaved) instance. Prevents duplicate-key violations on re-submission.
      */
-    private LoanReview resolveReview(LoanApplication application) {
-        return reviewRepository.findFirstByLoanApplicationOrderByReviewDateDesc(application)
+    private LoanReview resolveReview(LoanApplication application, User reviewer) {
+        return reviewRepository.findByLoanApplication(application).stream()
+                .filter(r -> r.getReviewer() != null && r.getReviewer().getId().equals(reviewer.getId()))
+                .findFirst()
                 .orElseGet(LoanReview::new);
     }
 
@@ -91,8 +95,11 @@ public class LoanReviewServiceImpl implements LoanReviewService {
         }
 
         if (application.getStatus() == LoanApplicationStatus.SUBMITTED) {
+            if (reviewer.getRole() != Role.LOAN_OFFICER) {
+                throw new RuntimeException("Only Loan Officers are allowed to review submitted applications.");
+            }
             // ── Loan Officer review ──────────────────────────────────────────────
-            LoanReview review = resolveReview(application);
+            LoanReview review = resolveReview(application, reviewer);
             review.setLoanApplication(application);
             review.setDecision(request.getDecision());
             review.setComments(request.getComments());
@@ -130,8 +137,11 @@ public class LoanReviewServiceImpl implements LoanReviewService {
             return reviewMapper.toResponse(review);
 
         } else if (application.getStatus() == LoanApplicationStatus.UNDER_REVIEW) {
+            if (reviewer.getRole() != Role.MANAGER) {
+                throw new RuntimeException("Only Managers are allowed to decide under review applications.");
+            }
             // ── Manager review (final approval / rejection) ──────────────────────
-            LoanReview review = resolveReview(application);
+            LoanReview review = resolveReview(application, reviewer);
             review.setLoanApplication(application);
             review.setDecision(request.getDecision());
             review.setComments(request.getComments());

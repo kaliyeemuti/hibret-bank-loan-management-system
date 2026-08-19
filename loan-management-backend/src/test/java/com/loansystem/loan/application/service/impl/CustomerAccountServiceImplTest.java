@@ -1,11 +1,14 @@
 package com.loansystem.loan.application.service.impl;
 
 import com.loansystem.loan.application.dto.response.CustomerAccountResponse;
+import com.loansystem.loan.domain.entity.Account;
 import com.loansystem.loan.domain.entity.BankTransaction;
 import com.loansystem.loan.domain.entity.CustomerAccount;
 import com.loansystem.loan.domain.entity.User;
 import com.loansystem.loan.domain.enums.CustomerAccountType;
+import com.loansystem.loan.domain.enums.LoanType;
 import com.loansystem.loan.domain.enums.TransactionType;
+import com.loansystem.loan.domain.repository.AccountRepository;
 import com.loansystem.loan.domain.repository.BankTransactionRepository;
 import com.loansystem.loan.domain.repository.CustomerAccountRepository;
 import com.loansystem.loan.domain.repository.UserRepository;
@@ -22,6 +25,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.Authentication;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -35,6 +39,7 @@ class CustomerAccountServiceImplTest {
     @Mock private CustomerAccountRepository customerAccountRepository;
     @Mock private UserRepository             userRepository;
     @Mock private BankTransactionRepository  bankTransactionRepository;
+    @Mock private AccountRepository          accountRepository;
     @Mock private SecurityContext            securityContext;
     @Mock private Authentication             authentication;
 
@@ -43,6 +48,7 @@ class CustomerAccountServiceImplTest {
 
     private User           customer;
     private CustomerAccount myAccount;
+    private Account         systemAccount;
 
     @BeforeEach
     void setUp() {
@@ -62,10 +68,20 @@ class CustomerAccountServiceImplTest {
         myAccount.setCurrency("ETB");
         myAccount.setStatus("ACTIVE");
 
+        systemAccount = new Account();
+        systemAccount.setId(1L);
+        systemAccount.setAccountName("Personal Loan Account");
+        systemAccount.setAccountNumber("SYS001");
+        systemAccount.setLoanType(LoanType.PERSONAL_LOAN);
+        systemAccount.setCurrentBalance(BigDecimal.valueOf(15_000_000));
+        systemAccount.setCurrency("ETB");
+        systemAccount.setStatus("ACTIVE");
+
         when(authentication.getName()).thenReturn("customer@test.com");
         when(securityContext.getAuthentication()).thenReturn(authentication);
         SecurityContextHolder.setContext(securityContext);
         when(userRepository.findByEmail("customer@test.com")).thenReturn(Optional.of(customer));
+        when(accountRepository.findAll()).thenReturn(List.of(systemAccount));
     }
 
     // ─── deposit tests ────────────────────────────────────────────────────────

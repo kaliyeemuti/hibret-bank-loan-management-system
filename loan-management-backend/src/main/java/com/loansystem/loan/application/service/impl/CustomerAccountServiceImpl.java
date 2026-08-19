@@ -2,11 +2,13 @@ package com.loansystem.loan.application.service.impl;
 
 import com.loansystem.loan.application.dto.response.CustomerAccountResponse;
 import com.loansystem.loan.application.service.CustomerAccountService;
+import com.loansystem.loan.domain.entity.Account;
 import com.loansystem.loan.domain.entity.BankTransaction;
 import com.loansystem.loan.domain.entity.CustomerAccount;
 import com.loansystem.loan.domain.entity.User;
 import com.loansystem.loan.domain.enums.CustomerAccountType;
 import com.loansystem.loan.domain.enums.TransactionType;
+import com.loansystem.loan.domain.repository.AccountRepository;
 import com.loansystem.loan.domain.repository.BankTransactionRepository;
 import com.loansystem.loan.domain.repository.CustomerAccountRepository;
 import com.loansystem.loan.domain.repository.UserRepository;
@@ -26,6 +28,7 @@ public class CustomerAccountServiceImpl implements CustomerAccountService {
     private final CustomerAccountRepository customerAccountRepository;
     private final UserRepository             userRepository;
     private final BankTransactionRepository  bankTransactionRepository;
+    private final AccountRepository          accountRepository;
 
     // ── Auth ─────────────────────────────────────────────────────────────────
     private User getAuthenticatedUser() {
@@ -81,6 +84,11 @@ public class CustomerAccountServiceImpl implements CustomerAccountService {
             throw new SecurityException("Account does not belong to authenticated customer");
         }
 
+        // bank_transactions.account_id is NOT NULL — use the first available system account as reference
+        Account systemAccount = accountRepository.findAll().stream()
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No bank account found for transaction reference"));
+
         BigDecimal before = account.getCurrentBalance();
         BigDecimal after  = before.add(amount);
         account.setCurrentBalance(after);
@@ -93,6 +101,7 @@ public class CustomerAccountServiceImpl implements CustomerAccountService {
                 .balanceAfter(after)
                 .description("Cash deposit to My Account")
                 .transactionDate(LocalDateTime.now())
+                .account(systemAccount)
                 .customer(customer)
                 .createdBy(customer)
                 .build());
@@ -116,6 +125,11 @@ public class CustomerAccountServiceImpl implements CustomerAccountService {
             throw new SecurityException("Account does not belong to authenticated customer");
         }
 
+        // bank_transactions.account_id is NOT NULL — use the first available system account as reference
+        Account systemAccount = accountRepository.findAll().stream()
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No bank account found for transaction reference"));
+
         BigDecimal before = account.getCurrentBalance();
         if (before.compareTo(amount) < 0) {
             throw new IllegalArgumentException(String.format(
@@ -134,6 +148,7 @@ public class CustomerAccountServiceImpl implements CustomerAccountService {
                 .balanceAfter(after)
                 .description("Withdrawal from My Account")
                 .transactionDate(LocalDateTime.now())
+                .account(systemAccount)
                 .customer(customer)
                 .createdBy(customer)
                 .build());

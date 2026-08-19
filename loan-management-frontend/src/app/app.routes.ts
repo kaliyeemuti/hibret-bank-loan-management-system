@@ -17,8 +17,6 @@ import { AdminDashboardComponent } from './pages/admin/dashboard/dashboard.compo
 import { UserManagementComponent } from './pages/admin/user-management/user-management.component';
 import { AddUserComponent } from './pages/admin/add-user/add-user.component';
 import { EditUserComponent } from './pages/admin/edit-user/edit-user.component';
-import { LoanTypesComponent } from './pages/admin/loan-types/loan-types.component';
-import { ReportsComponent as AdminReportsComponent } from './pages/admin/reports/reports.component';
 import { BanksComponent } from './pages/admin/banks/banks.component';
 import { TransactionsComponent } from './pages/admin/transactions/transactions.component';
 
@@ -58,116 +56,29 @@ export const routes: Routes = [
       { path: 'profile', component: ProfileComponent },
       { path: 'notifications', component: NotificationComponent },
       { path: 'repayments', component: RepaymentComponent },
-      
+
       // Admin Routes
-      { 
-        path: 'admin/dashboard', 
-        component: AdminDashboardComponent, 
-        canActivate: [roleGuard], 
-        data: { roles: ['ADMIN'] } 
-      },
-      { 
-        path: 'admin/users', 
-        component: UserManagementComponent, 
-        canActivate: [roleGuard], 
-        data: { roles: ['ADMIN'] } 
-      },
-      { 
-        path: 'admin/users/add', 
-        component: AddUserComponent, 
-        canActivate: [roleGuard], 
-        data: { roles: ['ADMIN'] } 
-      },
-      { 
-        path: 'admin/users/edit/:id', 
-        component: EditUserComponent, 
-        canActivate: [roleGuard], 
-        data: { roles: ['ADMIN'] } 
-      },
-      { 
-        path: 'admin/loan-types', 
-        component: LoanTypesComponent, 
-        canActivate: [roleGuard], 
-        data: { roles: ['ADMIN'] } 
-      },
-      { 
-        path: 'admin/reports', 
-        component: AdminReportsComponent, 
-        canActivate: [roleGuard], 
-        data: { roles: ['ADMIN', 'MANAGER'] } 
-      },
-      { 
-        path: 'admin/banks', 
-        component: BanksComponent, 
-        canActivate: [roleGuard], 
-        data: { roles: ['ADMIN'] } 
-      },
-      { 
-        path: 'admin/transactions', 
-        component: TransactionsComponent, 
-        canActivate: [roleGuard], 
-        data: { roles: ['ADMIN', 'MANAGER', 'LOAN_OFFICER'] } 
-      },
+      { path: 'admin/dashboard',  component: AdminDashboardComponent,  canActivate: [roleGuard], data: { roles: ['ADMIN'] } },
+      { path: 'admin/users',      component: UserManagementComponent,  canActivate: [roleGuard], data: { roles: ['ADMIN'] } },
+      { path: 'admin/users/add',  component: AddUserComponent,         canActivate: [roleGuard], data: { roles: ['ADMIN'] } },
+      { path: 'admin/users/edit/:id', component: EditUserComponent,    canActivate: [roleGuard], data: { roles: ['ADMIN'] } },
+      { path: 'admin/banks',      component: BanksComponent,           canActivate: [roleGuard], data: { roles: ['ADMIN'] } },
+      { path: 'admin/transactions', component: TransactionsComponent,  canActivate: [roleGuard], data: { roles: ['ADMIN', 'MANAGER', 'LOAN_OFFICER'] } },
 
       // Customer Routes
-      { 
-        path: 'customer/dashboard', 
-        component: CustomerDashboardComponent, 
-        canActivate: [roleGuard], 
-        data: { roles: ['CUSTOMER'] } 
-      },
-      { 
-        path: 'customer/apply-loan', 
-        component: ApplyLoanComponent, 
-        canActivate: [roleGuard], 
-        data: { roles: ['CUSTOMER'] } 
-      },
-      { 
-        path: 'customer/applications', 
-        component: CustomerApplicationsComponent, 
-        canActivate: [roleGuard], 
-        data: { roles: ['CUSTOMER'] } 
-      },
-      {
-        path: 'customer/your-accounts',
-        component: YourAccountsComponent,
-        canActivate: [roleGuard],
-        data: { roles: ['CUSTOMER'] }
-      },
-      {
-        path: 'customer/transactions',
-        component: CustomerTransactionsComponent,
-        canActivate: [roleGuard],
-        data: { roles: ['CUSTOMER'] }
-      },
+      { path: 'customer/dashboard',     component: CustomerDashboardComponent,          canActivate: [roleGuard], data: { roles: ['CUSTOMER'] } },
+      { path: 'customer/apply-loan',    component: ApplyLoanComponent,                  canActivate: [roleGuard], data: { roles: ['CUSTOMER'] } },
+      { path: 'customer/applications',  component: CustomerApplicationsComponent,       canActivate: [roleGuard], data: { roles: ['CUSTOMER'] } },
+      { path: 'customer/your-accounts', component: YourAccountsComponent,               canActivate: [roleGuard], data: { roles: ['CUSTOMER'] } },
+      { path: 'customer/transactions',  component: CustomerTransactionsComponent,        canActivate: [roleGuard], data: { roles: ['CUSTOMER'] } },
 
       // Loan Officer Routes
-      { 
-        path: 'loan-officer/dashboard', 
-        component: LoanOfficerDashboardComponent, 
-        canActivate: [roleGuard], 
-        data: { roles: ['LOAN_OFFICER'] } 
-      },
-      { 
-        path: 'loan-officer/review', 
-        component: ReviewApplicationsComponent, 
-        canActivate: [roleGuard], 
-        data: { roles: ['LOAN_OFFICER'] } 
-      },
+      { path: 'loan-officer/dashboard', component: LoanOfficerDashboardComponent,  canActivate: [roleGuard], data: { roles: ['LOAN_OFFICER'] } },
+      { path: 'loan-officer/review',    component: ReviewApplicationsComponent,     canActivate: [roleGuard], data: { roles: ['LOAN_OFFICER'] } },
 
       // Manager Routes
-      { 
-        path: 'manager/dashboard', 
-        component: ManagerDashboardComponent, 
-        canActivate: [roleGuard], 
-        data: { roles: ['MANAGER'] } 
-      },
-      { 
-        path: 'manager/approvals', 
-        component: ApprovalsComponent, 
-        canActivate: [roleGuard], 
-        data: { roles: ['MANAGER'] } 
-      }
+      { path: 'manager/dashboard', component: ManagerDashboardComponent, canActivate: [roleGuard], data: { roles: ['MANAGER'] } },
+      { path: 'manager/approvals', component: ApprovalsComponent,        canActivate: [roleGuard], data: { roles: ['MANAGER'] } }
     ]
   },
 

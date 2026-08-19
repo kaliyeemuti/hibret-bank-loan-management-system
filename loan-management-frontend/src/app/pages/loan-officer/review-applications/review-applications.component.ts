@@ -13,6 +13,9 @@ interface LoanApplication {
   status: string;
   applicationDate: string;
   purpose?: string;
+  reviewDecision?: string;
+  reviewDate?: string;
+  reviewComments?: string;
 }
 
 @Component({
@@ -25,7 +28,7 @@ interface LoanApplication {
       <div class="page-header">
         <div>
           <h1>Review Applications</h1>
-          <p>Process submitted loan applications</p>
+          <p>Process submitted loan applications and view history</p>
         </div>
       </div>
 
@@ -35,6 +38,16 @@ interface LoanApplication {
         </div>
         <div *ngIf="errorMsg" class="error-message" style="margin-bottom: 20px;">
           {{ errorMsg }}
+        </div>
+
+        <!-- ACTIVE | HISTORY Tabs -->
+        <div class="repayment-tabs" style="margin-bottom: 20px;">
+          <button class="repayment-tab-btn" [class.active]="activeTab() === 'active'" (click)="setTab('active')">
+            Active Applications
+          </button>
+          <button class="repayment-tab-btn" [class.active]="activeTab() === 'history'" (click)="setTab('history')">
+            History
+          </button>
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr;" [style.grid-template-columns]="selectedApp() ? '3fr 2fr' : '1fr'">
@@ -53,11 +66,11 @@ interface LoanApplication {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let app of pendingApps()" [class.selected]="selectedApp()?.id === app.id">
+                  <tr *ngFor="let app of displayedApps()" [class.selected]="selectedApp()?.id === app.id">
                     <td>{{ app.applicationNumber }}</td>
                     <td>{{ app.customerName }}</td>
                     <td>{{ app.loanProductName }}</td>
-                    <td>\${{ app.requestedAmount.toLocaleString() }}</td>
+                    <td>ETB {{ app.requestedAmount.toLocaleString() }}</td>
                     <td>
                       <span class="status-badge" [ngClass]="app.status.toLowerCase().replace('_', '')">
                         {{ app.status.replace('_', ' ') }}
@@ -65,14 +78,16 @@ interface LoanApplication {
                     </td>
                     <td>{{ app.applicationDate }}</td>
                     <td>
-                      <button class="btn-small" (click)="handleSelectApp(app)">Review</button>
+                      <button class="btn-small" (click)="handleSelectApp(app)">
+                        {{ activeTab() === 'active' ? 'Review' : 'View' }}
+                      </button>
                     </td>
                   </tr>
                 </tbody>
               </table>
             </div>
-            <div *ngIf="pendingApps().length === 0" class="empty-state">
-              <p>No loan applications awaiting review.</p>
+            <div *ngIf="displayedApps().length === 0" class="empty-state">
+              <p>{{ activeTab() === 'active' ? 'No loan applications awaiting review.' : 'No review history found.' }}</p>
             </div>
           </div>
 
@@ -86,11 +101,12 @@ interface LoanApplication {
               <p style="margin-bottom: 8px;"><strong>Application #:</strong> {{ selectedApp()?.applicationNumber }}</p>
               <p style="margin-bottom: 8px;"><strong>Customer:</strong> {{ selectedApp()?.customerName }}</p>
               <p style="margin-bottom: 8px;"><strong>Type:</strong> {{ selectedApp()?.loanProductName }}</p>
-              <p style="margin-bottom: 8px;"><strong>Amount:</strong> \${{ selectedApp()?.requestedAmount?.toLocaleString() }}</p>
+              <p style="margin-bottom: 8px;"><strong>Amount:</strong> ETB {{ selectedApp()?.requestedAmount?.toLocaleString() }}</p>
               <p style="margin-bottom: 0;"><strong>Purpose:</strong> {{ selectedApp()?.purpose || 'N/A' }}</p>
             </div>
 
-            <form (ngSubmit)="submitReview()" class="form-layout" style="gap: 15px;">
+            <!-- Active Form View -->
+            <form *ngIf="activeTab() === 'active'" (ngSubmit)="submitReview()" class="form-layout" style="gap: 15px;">
               <div class="form-group">
                 <label for="decision">Decision *</label>
                 <select id="decision" [(ngModel)]="reviewForm.decision" name="decision">
@@ -111,6 +127,31 @@ interface LoanApplication {
                 </button>
               </div>
             </form>
+
+            <!-- History Read-Only View -->
+            <div *ngIf="activeTab() === 'history'" style="background-color: #f8fafc; border: 1px solid var(--border-color); padding: 15px; border-radius: 6px;">
+              <h3 style="color: var(--primary-purple); font-size: 14px; margin-top: 0; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">
+                Your Review Details (Read-Only)
+              </h3>
+              <p style="margin-bottom: 8px; font-size: 13.5px;">
+                <strong>Recommendation:</strong>&nbsp;
+                <span class="status-badge" [ngClass]="selectedApp()?.reviewDecision?.toLowerCase() === 'approved' ? 'active' : 'rejected'">
+                  {{ selectedApp()?.reviewDecision === 'APPROVED' ? 'Recommend Approval' : (selectedApp()?.reviewDecision === 'REJECTED' ? 'Recommend Rejection' : 'Request More Info') }}
+                </span>
+              </p>
+              <p style="margin-bottom: 8px; font-size: 13.5px;">
+                <strong>Your Comments:</strong> {{ selectedApp()?.reviewComments || 'N/A' }}
+              </p>
+              <p style="margin-bottom: 8px; font-size: 13.5px;">
+                <strong>Review Date:</strong> {{ selectedApp()?.reviewDate ? (selectedApp()?.reviewDate | date:'medium') : 'N/A' }}
+              </p>
+              <p style="margin-bottom: 0; font-size: 13.5px;">
+                <strong>Current Application Status:</strong>&nbsp;
+                <span class="status-badge" [ngClass]="selectedApp()?.status?.toLowerCase()?.replace('_', '') || ''">
+                  {{ selectedApp()?.status?.replace('_', ' ') }}
+                </span>
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -122,6 +163,7 @@ export class ReviewApplicationsComponent implements OnInit {
 
   applications = signal<LoanApplication[]>([]);
   selectedApp = signal<LoanApplication | null>(null);
+  activeTab = signal<'active' | 'history'>('active');
 
   loading = false;
   successMsg = '';
@@ -132,14 +174,22 @@ export class ReviewApplicationsComponent implements OnInit {
     comments: ''
   };
 
-  pendingApps = computed(() => this.applications().filter(app => app.status === 'SUBMITTED'));
+  displayedApps = computed(() => this.applications());
 
   ngOnInit() {
     this.loadApplications();
   }
 
+  setTab(tab: 'active' | 'history') {
+    this.activeTab.set(tab);
+    this.selectedApp.set(null);
+    this.successMsg = '';
+    this.errorMsg = '';
+    this.loadApplications();
+  }
+
   loadApplications() {
-    this.loanService.getLoanApplications().subscribe({
+    this.loanService.getLoanApplications(this.activeTab()).subscribe({
       next: (data) => {
         const mapped = (data || []).map((a: any) => ({
           id: a.id,
@@ -149,7 +199,10 @@ export class ReviewApplicationsComponent implements OnInit {
           requestedAmount: Number(a.requestedAmount ?? 0),
           status: a.status || 'SUBMITTED',
           applicationDate: a.applicationDate || a.createdAt?.split('T')[0] || '',
-          purpose: a.purpose || ''
+          purpose: a.purpose || '',
+          reviewDecision: a.reviewDecision,
+          reviewDate: a.reviewDate,
+          reviewComments: a.reviewComments
         }));
         this.applications.set(mapped);
       },

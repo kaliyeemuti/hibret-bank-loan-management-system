@@ -94,6 +94,39 @@ export class RepaymentService {
     );
   }
 
+  /**
+   * Computes repayment statistics from an already-loaded list of schedules.
+   * Used by the Admin Transactions page, which fetches schedules via the
+   * per-loan admin endpoint (not the customer-scoped /my-schedules endpoint).
+   * This ensures the admin sees system-wide stats, not their own (empty) data.
+   */
+  computeStatsFromSchedules(schedules: RepaymentResponse[]): {
+    totalPaid: number;
+    remainingBalance: number;
+    overdueInstallments: number;
+    upcomingInstallments: number;
+    repaymentProgress: number;
+  } {
+    const totalPaid = schedules
+      .filter(s => s.status === 'PAID')
+      .reduce((sum, s) => sum + s.amountDue, 0);
+    const remainingBalance = schedules
+      .filter(s => s.status !== 'PAID')
+      .reduce((sum, s) => sum + s.remainingBalance, 0);
+    const totalInstallments = schedules.length;
+    const paidInstallments = schedules.filter(s => s.status === 'PAID').length;
+    const repaymentProgress = totalInstallments > 0
+      ? Math.round((paidInstallments / totalInstallments) * 100)
+      : 0;
+    return {
+      totalPaid,
+      remainingBalance,
+      overdueInstallments: schedules.filter(s => s.status === 'OVERDUE').length,
+      upcomingInstallments: schedules.filter(s => s.status === 'PENDING').length,
+      repaymentProgress
+    };
+  }
+
   private mapScheduleToRepayment(s: any): RepaymentResponse {
     // The /my-schedules endpoint returns RepaymentScheduleResponse DTO fields.
     // loanApplicationId and loanApplicationNumber come directly.

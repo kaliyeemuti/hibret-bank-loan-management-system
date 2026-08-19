@@ -103,7 +103,7 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
     }
 
     @Override
-    public List<LoanApplicationResponse> getAllApplications() {
+    public List<LoanApplicationResponse> getAllApplications(String type) {
         User user = getAuthenticatedUser();
         List<LoanApplication> allApplications = applicationRepository.findAll();
 
@@ -114,6 +114,40 @@ public class LoanApplicationServiceImpl implements LoanApplicationService {
                     .map(applicationMapper::toResponse)
                     .toList();
         } else {
+            if ("active".equalsIgnoreCase(type)) {
+                if (user.getRole() == com.loansystem.loan.domain.enums.Role.LOAN_OFFICER) {
+                    return allApplications.stream()
+                            .filter(app -> app.getStatus() == LoanApplicationStatus.SUBMITTED)
+                            .map(applicationMapper::toResponse)
+                            .toList();
+                } else if (user.getRole() == com.loansystem.loan.domain.enums.Role.MANAGER) {
+                    return allApplications.stream()
+                            .filter(app -> app.getStatus() == LoanApplicationStatus.UNDER_REVIEW)
+                            .map(applicationMapper::toResponse)
+                            .toList();
+                }
+            } else if ("history".equalsIgnoreCase(type)) {
+                List<LoanReview> reviews = reviewRepository.findByReviewer(user);
+                List<Long> applicationIdsReviewed = reviews.stream()
+                        .map(r -> r.getLoanApplication() != null ? r.getLoanApplication().getId() : null)
+                        .filter(java.util.Objects::nonNull)
+                        .toList();
+
+                if (user.getRole() == com.loansystem.loan.domain.enums.Role.LOAN_OFFICER) {
+                    return allApplications.stream()
+                            .filter(app -> applicationIdsReviewed.contains(app.getId()))
+                            .filter(app -> app.getStatus() != LoanApplicationStatus.SUBMITTED)
+                            .map(applicationMapper::toResponse)
+                            .toList();
+                } else if (user.getRole() == com.loansystem.loan.domain.enums.Role.MANAGER) {
+                    return allApplications.stream()
+                            .filter(app -> applicationIdsReviewed.contains(app.getId()))
+                            .filter(app -> app.getStatus() != LoanApplicationStatus.UNDER_REVIEW)
+                            .map(applicationMapper::toResponse)
+                            .toList();
+                }
+            }
+
             return allApplications.stream()
                     .map(applicationMapper::toResponse)
                     .toList();

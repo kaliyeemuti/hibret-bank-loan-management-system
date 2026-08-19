@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { BankService } from '../../../core/services/bank.service';
+import { LoanService } from '../../../core/services/loan.service';
 import { BackButtonComponent } from '../../../components/back-button/back-button.component';
 
 interface LoanAccount {
@@ -12,6 +13,16 @@ interface LoanAccount {
   currentBalance: number;
   currency: string;
   status: string;
+}
+
+interface LoanProduct {
+  id: number;
+  name: string;
+  minAmount: number;
+  maxAmount: number;
+  interestRate: string | number;
+  tenure: string | number;
+  description: string;
 }
 
 @Component({
@@ -122,6 +133,72 @@ interface LoanAccount {
           </form>
         </div>
 
+        <!-- ══════════════════════════════════════════════════
+             LOAN PRODUCTS SECTION
+             ══════════════════════════════════════════════════ -->
+        <div style="margin-top:40px;">
+          <div style="margin-bottom:16px;">
+            <h2 style="margin:0 0 4px;color:var(--primary-purple);font-size:18px;">Loan Products</h2>
+            <p style="margin:0;font-size:14px;opacity:.65;">Available loan products and their terms</p>
+          </div>
+
+          <!-- Loading state -->
+          <div *ngIf="loadingProducts" style="padding:20px;text-align:center;color:#666;">
+            <p>Loading loan products…</p>
+          </div>
+
+          <!-- Products table -->
+          <div *ngIf="!loadingProducts && loanProducts.length > 0"
+               style="overflow-x:auto;background:white;border-radius:8px;border:1px solid #e0e0e0;">
+            <table style="width:100%;border-collapse:collapse;font-size:14px;">
+              <thead>
+                <tr style="background:#f5f5f5;">
+                  <th style="padding:12px 16px;text-align:left;border-bottom:1px solid #e0e0e0;">Loan Type</th>
+                  <th style="padding:12px 16px;text-align:right;border-bottom:1px solid #e0e0e0;">Min Amount (ETB)</th>
+                  <th style="padding:12px 16px;text-align:right;border-bottom:1px solid #e0e0e0;">Max Amount (ETB)</th>
+                  <th style="padding:12px 16px;text-align:center;border-bottom:1px solid #e0e0e0;">Interest Rate</th>
+                  <th style="padding:12px 16px;text-align:center;border-bottom:1px solid #e0e0e0;">Tenure</th>
+                  <th style="padding:12px 16px;text-align:left;border-bottom:1px solid #e0e0e0;">Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let p of loanProducts" style="border-bottom:1px solid #f0f0f0;">
+                  <td style="padding:12px 16px;font-weight:600;color:var(--primary-purple);">
+                    {{ p.name }}
+                  </td>
+                  <td style="padding:12px 16px;text-align:right;">
+                    {{ p.minAmount | number:'1.2-2' }}
+                  </td>
+                  <td style="padding:12px 16px;text-align:right;">
+                    {{ p.maxAmount | number:'1.2-2' }}
+                  </td>
+                  <td style="padding:12px 16px;text-align:center;font-weight:600;color:var(--primary-teal);">
+                    {{ formatInterest(p.interestRate) }}
+                  </td>
+                  <td style="padding:12px 16px;text-align:center;">
+                    {{ formatTenure(p.tenure) }}
+                  </td>
+                  <td style="padding:12px 16px;color:#555;font-size:13px;">
+                    {{ p.description || '—' }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Empty state -->
+          <div *ngIf="!loadingProducts && loanProducts.length === 0 && !productsError"
+               style="padding:20px;text-align:center;color:#666;background:white;border-radius:8px;border:1px solid #e0e0e0;">
+            <p>No loan products found.</p>
+          </div>
+
+          <!-- Error state (does not affect loan accounts above) -->
+          <div *ngIf="productsError"
+               style="padding:14px 18px;border-radius:6px;background:#fff5f5;border:1px solid #fecaca;color:#b91c1c;font-size:14px;">
+            ⚠️ {{ productsError }}
+          </div>
+        </div>
+
       </div>
     </div>
   `
@@ -130,16 +207,21 @@ export class BanksComponent implements OnInit {
 
   accounts:        LoanAccount[]      = [];
   selectedAccount: LoanAccount | null = null;
-  loading = false;
+  loading    = false;
   saving     = false;
   successMsg = '';
   errorMsg   = '';
+
+  loanProducts:   LoanProduct[] = [];
+  loadingProducts = false;
+  productsError   = '';
 
   adjustForm: FormGroup;
 
   constructor(
     private bankService: BankService,
-    private fb: FormBuilder
+    private loanService: LoanService,
+    private fb:          FormBuilder
   ) {
     this.adjustForm = this.fb.group({
       newBalance: [null as number | null, [Validators.required, Validators.min(0)]],
@@ -149,6 +231,7 @@ export class BanksComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadAccounts();
+    this.loadLoanProducts();
   }
 
   loadAccounts(): void {
@@ -205,6 +288,41 @@ export class BanksComponent implements OnInit {
           this.errorMsg = err?.error?.message || 'Failed to update balance.';
         }
       });
+  }
+
+  loadLoanProducts(): void {
+    this.loadingProducts = true;
+    this.productsError   = '';
+    this.loanService.getLoanProducts().subscribe({
+      next: (products) => {
+        this.loanProducts = (products || []).map((p: any) => ({
+          id:           p.id,
+          name:         p.name || p.productName || 'Loan Product',
+          minAmount:    p.minimumAmount ?? p.minAmount ?? 0,
+          maxAmount:    p.maximumAmount ?? p.maxAmount ?? 0,
+          interestRate: p.interestRate ?? '',
+          tenure:       p.repaymentPeriodMonths ?? p.tenure ?? '',
+          description:  p.description || ''
+        }));
+        this.loadingProducts = false;
+      },
+      error: (err) => {
+        console.error('[BANKS] Error loading loan products:', err);
+        this.loanProducts    = [];
+        this.loadingProducts = false;
+        this.productsError   = 'Failed to load loan products.';
+      }
+    });
+  }
+
+  formatInterest(rate: any): string {
+    if (typeof rate === 'number') return `${rate}%`;
+    return rate ? String(rate) : '—';
+  }
+
+  formatTenure(tenure: any): string {
+    if (typeof tenure === 'number') return `${tenure} months`;
+    return tenure ? String(tenure) : '—';
   }
 
   formatLoanType(loanType: string): string {

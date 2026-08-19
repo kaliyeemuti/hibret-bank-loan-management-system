@@ -16,6 +16,10 @@ interface LoanApplication {
   reviewerName?: string;
   purpose?: string;
   reviewComments?: string;
+  approvalComments?: string;
+  decisionDate?: string;
+  rejectionReason?: string;
+  managerRemarks?: string;
 }
 
 @Component({
@@ -28,7 +32,7 @@ interface LoanApplication {
       <div class="page-header">
         <div>
           <h1>Loan Approvals</h1>
-          <p>Review and approve/reject loan applications forwarded by loan officers</p>
+          <p>Review and approve/reject loan applications forwarded by loan officers and view history</p>
         </div>
       </div>
 
@@ -38,6 +42,16 @@ interface LoanApplication {
         </div>
         <div *ngIf="errorMsg" class="error-message" style="margin-bottom: 20px;">
           {{ errorMsg }}
+        </div>
+
+        <!-- ACTIVE | HISTORY Tabs -->
+        <div class="repayment-tabs" style="margin-bottom: 20px;">
+          <button class="repayment-tab-btn" [class.active]="activeTab() === 'active'" (click)="setTab('active')">
+            Active Decisions
+          </button>
+          <button class="repayment-tab-btn" [class.active]="activeTab() === 'history'" (click)="setTab('history')">
+            History
+          </button>
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr;" [style.grid-template-columns]="selectedApp() ? '3fr 2fr' : '1fr'">
@@ -56,11 +70,11 @@ interface LoanApplication {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let app of reviewedApps()" [class.selected]="selectedApp()?.id === app.id">
+                  <tr *ngFor="let app of displayedApps()" [class.selected]="selectedApp()?.id === app.id">
                     <td>{{ app.applicationNumber }}</td>
                     <td>{{ app.customerName }}</td>
                     <td>{{ app.loanProductName }}</td>
-                    <td>\${{ app.requestedAmount.toLocaleString() }}</td>
+                    <td>ETB {{ app.requestedAmount.toLocaleString() }}</td>
                     <td>{{ app.reviewerName || 'Loan Officer' }}</td>
                     <td>
                       <span class="status-badge" [ngClass]="app.status.toLowerCase().replace('_', '')">
@@ -68,32 +82,35 @@ interface LoanApplication {
                       </span>
                     </td>
                     <td>
-                      <button class="btn-small" (click)="selectApp(app)">Decide</button>
+                      <button class="btn-small" (click)="selectApp(app)">
+                        {{ activeTab() === 'active' ? 'Decide' : 'View' }}
+                      </button>
                     </td>
                   </tr>
                 </tbody>
               </table>
             </div>
-            <div *ngIf="reviewedApps().length === 0" class="empty-state">
-              <p>No loan applications currently awaiting manager approval.</p>
+            <div *ngIf="displayedApps().length === 0" class="empty-state">
+              <p>{{ activeTab() === 'active' ? 'No loan applications currently awaiting manager approval.' : 'No decision history found.' }}</p>
             </div>
           </div>
 
           <div *ngIf="selectedApp()" class="form-card">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-              <h2>Manager Decision</h2>
+              <h2>{{ activeTab() === 'active' ? 'Manager Decision' : 'Decision Details' }}</h2>
               <button class="btn-small btn-ghost" (click)="selectedApp.set(null)">✕ Close</button>
             </div>
 
             <div style="background-color: var(--light-bg); padding: 15px; border-radius: 6px; margin-bottom: 20px; font-size: 14px;">
               <p style="margin-bottom: 8px;"><strong>Application #:</strong> {{ selectedApp()?.applicationNumber }}</p>
               <p style="margin-bottom: 8px;"><strong>Customer:</strong> {{ selectedApp()?.customerName }}</p>
-              <p style="margin-bottom: 8px;"><strong>Amount:</strong> \${{ selectedApp()?.requestedAmount?.toLocaleString() }}</p>
+              <p style="margin-bottom: 8px;"><strong>Amount:</strong> ETB {{ selectedApp()?.requestedAmount?.toLocaleString() }}</p>
               <p style="margin-bottom: 8px;"><strong>Purpose:</strong> {{ selectedApp()?.purpose || 'N/A' }}</p>
               <p style="margin-bottom: 0;"><strong>Officer Comments:</strong> {{ selectedApp()?.reviewComments || 'N/A' }}</p>
             </div>
 
-            <form (ngSubmit)="submitDecision()" class="form-layout" style="gap: 15px;">
+            <!-- Active Decision Form View -->
+            <form *ngIf="activeTab() === 'active'" (ngSubmit)="submitDecision()" class="form-layout" style="gap: 15px;">
               <div class="form-group">
                 <label for="decision">Decision *</label>
                 <select id="decision" [(ngModel)]="decisionForm.decision" name="decision">
@@ -114,6 +131,28 @@ interface LoanApplication {
                 </button>
               </div>
             </form>
+
+            <!-- History Read-Only View -->
+            <div *ngIf="activeTab() === 'history'" style="background-color: #f8fafc; border: 1px solid var(--border-color); padding: 15px; border-radius: 6px;">
+              <h3 style="color: var(--primary-purple); font-size: 14px; margin-top: 0; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">
+                Your Decision Details (Read-Only)
+              </h3>
+              <p style="margin-bottom: 8px; font-size: 13.5px;">
+                <strong>Decision Comments:</strong> {{ selectedApp()?.approvalComments || selectedApp()?.managerRemarks || 'N/A' }}
+              </p>
+              <p *ngIf="selectedApp()?.rejectionReason" style="margin-bottom: 8px; font-size: 13.5px; color: var(--danger);">
+                <strong>Rejection Reason:</strong> {{ selectedApp()?.rejectionReason }}
+              </p>
+              <p style="margin-bottom: 8px; font-size: 13.5px;">
+                <strong>Decision Date:</strong> {{ selectedApp()?.decisionDate ? (selectedApp()?.decisionDate | date:'medium') : 'N/A' }}
+              </p>
+              <p style="margin-bottom: 0; font-size: 13.5px;">
+                <strong>Final Application Status:</strong>&nbsp;
+                <span class="status-badge" [ngClass]="selectedApp()?.status?.toLowerCase()?.replace('_', '') || ''">
+                  {{ selectedApp()?.status?.replace('_', ' ') }}
+                </span>
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -127,6 +166,7 @@ export class ApprovalsComponent implements OnInit {
 
   applications = signal<LoanApplication[]>([]);
   selectedApp = signal<LoanApplication | null>(null);
+  activeTab = signal<'active' | 'history'>('active');
 
   successMsg = '';
   errorMsg = '';
@@ -137,14 +177,22 @@ export class ApprovalsComponent implements OnInit {
     comments: ''
   };
 
-  reviewedApps = computed(() => this.applications().filter(app => app.status === 'UNDER_REVIEW'));
+  displayedApps = computed(() => this.applications());
 
   ngOnInit() {
     this.loadApplications();
   }
 
+  setTab(tab: 'active' | 'history') {
+    this.activeTab.set(tab);
+    this.selectedApp.set(null);
+    this.successMsg = '';
+    this.errorMsg = '';
+    this.loadApplications();
+  }
+
   loadApplications() {
-    this.loanService.getLoanApplications().subscribe({
+    this.loanService.getLoanApplications(this.activeTab()).subscribe({
       next: (data) => {
         const mapped = (data || []).map((a: any) => ({
           id: a.id,
@@ -155,7 +203,11 @@ export class ApprovalsComponent implements OnInit {
           status: a.status || 'MANAGER_REVIEW',
           reviewerName: a.reviewerName,
           purpose: a.purpose || '',
-          reviewComments: a.reviewComments
+          reviewComments: a.reviewComments,
+          approvalComments: a.approvalComments,
+          decisionDate: a.decisionDate,
+          rejectionReason: a.rejectionReason,
+          managerRemarks: a.managerRemarks
         }));
         this.applications.set(mapped);
       },

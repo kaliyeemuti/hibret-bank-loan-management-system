@@ -33,9 +33,10 @@ public class LoanApplicationController {
 
 
     @GetMapping
-    public List<LoanApplicationResponse> getApplications(){
+    public List<LoanApplicationResponse> getApplications(
+            @RequestParam(required = false) String type){
 
-        return applicationService.getAllApplications();
+        return applicationService.getAllApplications(type);
     }
 
 

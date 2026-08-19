@@ -27,6 +27,8 @@ public class LoanApplicationMapper {
         String officerRemarks = null;
         String managerRemarks = null;
         String reviewerName = null;
+        String reviewDecision = null;
+        java.time.LocalDateTime reviewDate = null;
 
         if (reviews != null) {
             for (LoanReview review : reviews) {
@@ -34,6 +36,8 @@ public class LoanApplicationMapper {
                     if (review.getReviewer().getRole() == Role.LOAN_OFFICER) {
                         officerRemarks = review.getComments();
                         reviewerName = review.getReviewer().getFullName();
+                        reviewDecision = review.getDecision() != null ? review.getDecision().name() : null;
+                        reviewDate = review.getReviewDate();
                     } else if (review.getReviewer().getRole() == Role.MANAGER) {
                         managerRemarks = review.getComments();
                     }
@@ -65,6 +69,8 @@ public class LoanApplicationMapper {
                 .decisionDate(application.getDecisionDate())
                 .interestRate(application.getLoanProduct() != null ? application.getLoanProduct().getInterestRate() : null)
                 .repaymentPeriodMonths(application.getLoanProduct() != null ? application.getLoanProduct().getRepaymentPeriodMonths() : null)
+                .reviewDecision(reviewDecision)
+                .reviewDate(reviewDate)
                 .build();
     }
 }

@@ -52,4 +52,8 @@ public class LoanApplicationResponse {
     private BigDecimal interestRate;
 
     private Integer repaymentPeriodMonths;
+
+    private String reviewDecision;
+
+    private LocalDateTime reviewDate;
 }

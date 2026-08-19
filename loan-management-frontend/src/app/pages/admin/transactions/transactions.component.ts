@@ -613,16 +613,21 @@ export class TransactionsComponent implements OnInit {
       next: (data: RepaymentResponse[]) => {
         this.repayments.set(data || []);
         this.rpLoading = false;
+
+        // ── Compute admin-scoped repayment statistics ────────────────────────
+        // Uses the schedules already fetched via the per-loan admin endpoint
+        // (/api/repayment-schedules/loan-application/{id}), which returns
+        // system-wide data. This replaces the previous call to
+        // getRepaymentStats() which internally hit /my-schedules (customer-
+        // scoped) and returned an empty list for admin users, causing all
+        // four repayment stat cards to display 0.
+        const stats = this.repaymentService.computeStatsFromSchedules(data || []);
+        this.repaymentStats.set(stats);
       },
       error: (err: any) => {
         console.error('Error fetching repayments:', err);
         this.rpLoading = false;
       }
-    });
-
-    this.repaymentService.getRepaymentStats().subscribe({
-      next:  (s: any) => this.repaymentStats.set(s),
-      error: ()  => {}
     });
   }
 

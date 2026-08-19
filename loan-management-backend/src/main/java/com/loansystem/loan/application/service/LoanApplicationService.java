@@ -12,7 +12,7 @@ public interface LoanApplicationService {
             LoanApplicationRequest request);
 
 
-    List<LoanApplicationResponse> getAllApplications();
+    List<LoanApplicationResponse> getAllApplications(String type);
 
 
     LoanApplicationResponse getApplicationById(Long id);

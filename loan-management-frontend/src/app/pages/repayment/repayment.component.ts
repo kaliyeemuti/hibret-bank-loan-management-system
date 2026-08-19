@@ -765,12 +765,25 @@ export class RepaymentComponent implements OnInit {
   }
 
   loadData() {
-    let fetchObs: Observable<RepaymentResponse[]>;
-
     if (this.role() === 'CUSTOMER') {
-      fetchObs = this.repaymentService.getCustomerRepayments();
+      // ── Customer: fetch own schedules + own stats (both customer-scoped) ────
+      this.repaymentService.getCustomerRepayments().subscribe({
+        next:  (data: RepaymentResponse[]) => this.repayments.set(data || []),
+        error: (err: any) => { console.error(err); this.errorMsg = 'Failed to load repayment schedule.'; }
+      });
+
+      this.repaymentService.getRepaymentStats().subscribe({
+        next:  (res: any) => this.stats.set(res),
+        error: () => {}
+      });
     } else {
-      fetchObs = this.loanService.getLoanApplications().pipe(
+      // ── Manager / Admin: fetch ALL schedules across all active loans ─────────
+      // Uses the per-loan admin endpoint (/api/repayment-schedules/loan-application/{id})
+      // which is scoped to all loans, not to the authenticated staff user.
+      // Stats are computed from this same system-wide data, NOT from
+      // getRepaymentStats() which internally calls the customer-scoped
+      // /my-schedules endpoint and returns empty for staff users.
+      this.loanService.getLoanApplications().pipe(
         switchMap(loans => {
           const activeLoans = loans.filter(l => l.status === 'DISBURSED' || l.status === 'COMPLETED');
           if (activeLoans.length === 0) {
@@ -788,18 +801,17 @@ export class RepaymentComponent implements OnInit {
             map(results => results.reduce((acc, curr) => acc.concat(curr), [] as RepaymentResponse[]))
           );
         })
-      );
+      ).subscribe({
+        next: (data: RepaymentResponse[]) => {
+          this.repayments.set(data || []);
+          // Compute system-wide stats from the same per-loan data fetched above.
+          // This mirrors the fix already applied to Admin Transactions page.
+          const computed = this.repaymentService.computeStatsFromSchedules(data || []);
+          this.stats.set(computed);
+        },
+        error: (err: any) => { console.error(err); this.errorMsg = 'Failed to load repayment schedule.'; }
+      });
     }
-
-    fetchObs.subscribe({
-      next:  (data: RepaymentResponse[]) => this.repayments.set(data || []),
-      error: (err: any)  => { console.error(err); this.errorMsg = 'Failed to load repayment schedule.'; }
-    });
-
-    this.repaymentService.getRepaymentStats().subscribe({
-      next:  (res: any) => this.stats.set(res),
-      error: ()    => {}
-    });
   }
 
   openPaymentModal(item: RepaymentResponse) {
